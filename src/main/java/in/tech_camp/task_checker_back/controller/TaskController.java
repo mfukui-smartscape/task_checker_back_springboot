@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 import in.tech_camp.task_checker_back.dto.UpdateStatusDTO;
 import in.tech_camp.task_checker_back.entity.TaskEntity;
 import in.tech_camp.task_checker_back.repository.TaskRepository;
+import in.tech_camp.task_checker_back.service.ServiceResult;
+import in.tech_camp.task_checker_back.service.TaskDuplicateService;
+import in.tech_camp.task_checker_back.service.TaskService;
 import lombok.AllArgsConstructor;
 
 @RestController
@@ -25,7 +28,11 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class TaskController {
 
+  private static final List<String> VALID_PRIORITIES = List.of("low", "medium", "high");
+
   private final TaskRepository taskRepository;
+  private final TaskService taskService;
+  private final TaskDuplicateService taskDuplicateService;
 
   @GetMapping("/")
   public List<TaskEntity> showIndex() {
@@ -35,11 +42,10 @@ public class TaskController {
 
   @PostMapping("/")
   public ResponseEntity<?> createTask(@RequestBody TaskEntity task) {
-    try {
-      taskRepository.insert(task);
-    } catch (Exception e) {
-      System.out.println("エラー：" + e);
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("messages", List.of("Internal Server Error")));
+    ServiceResult<TaskEntity> result = taskService.create(task);
+    if (!result.isSuccess()) {
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+          .body(Map.of("messages", result.errors()));
     }
     List<TaskEntity> tasks = taskRepository.findAll();
     return ResponseEntity.ok().body(tasks);
@@ -53,11 +59,17 @@ public class TaskController {
       return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("messages", List.of("Task not found")));
     }
 
+    if (!VALID_PRIORITIES.contains(task.getPriority())) {
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+          .body(Map.of("messages", List.of("priority は low, medium, high のいずれかを指定してください")));
+    }
+
     existingTask.setName(task.getName());
     existingTask.setExplanation(task.getExplanation());
     existingTask.setDeadlineDate(task.getDeadlineDate());
     existingTask.setStatus(task.getStatus());
     existingTask.setGenreId(task.getGenreId());
+    existingTask.setPriority(task.getPriority());
     existingTask.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
 
     try {
@@ -69,6 +81,17 @@ public class TaskController {
 
     List<TaskEntity> tasks = taskRepository.findAll();
 
+    return ResponseEntity.ok().body(tasks);
+  }
+
+  @PostMapping("/{taskId}/duplicate")
+  public ResponseEntity<?> duplicateTask(@PathVariable("taskId") Integer taskId) {
+    ServiceResult<TaskEntity> result = taskDuplicateService.duplicate(taskId);
+    if (!result.isSuccess()) {
+      return ResponseEntity.status(HttpStatus.NOT_FOUND)
+          .body(Map.of("messages", result.errors()));
+    }
+    List<TaskEntity> tasks = taskRepository.findAll();
     return ResponseEntity.ok().body(tasks);
   }
 

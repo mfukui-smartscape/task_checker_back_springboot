@@ -16,6 +16,9 @@ public interface GenreRepository {
   @Select("SELECT * FROM genres")
   List<GenreEntity> findAll();
 
+  @Select("SELECT * FROM genres WHERE id = #{id}")
+  GenreEntity findById(Integer id);
+
   @Insert("INSERT INTO genres (name) VALUES (#{name})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insert(GenreEntity genre);

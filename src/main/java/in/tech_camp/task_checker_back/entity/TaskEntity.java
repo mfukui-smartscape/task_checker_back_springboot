@@ -14,6 +14,7 @@ public class TaskEntity {
     private Timestamp deadlineDate;
     private Integer status;
     private Integer genreId;
+    private String priority = "medium";
 
     @JsonIgnore
     private Timestamp createdAt;
